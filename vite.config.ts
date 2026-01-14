@@ -10,4 +10,11 @@ export default defineConfig({
       '@shared': path.resolve(__dirname, './src/shared'),
     },
   },
+  publicDir: 'public',
+  server: {
+    fs: {
+      // Allow serving files from the data directory
+      allow: ['.', 'data'],
+    },
+  },
 });

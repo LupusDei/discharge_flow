@@ -1,18 +1,13 @@
-// Client-side services
 export {
-  initializeDatabase,
-  resetDatabase,
-  getAllPatients,
+  getPatients,
+  getTasks,
+  savePatients,
+  saveTasks,
+  initializeFromCSV,
   getPatientById,
-  searchPatientsByName,
-  getAllTasks,
-  getTasksByPatientId,
-  getTasksByStatus,
-  getUrgentTasks,
-  getOverdueTasks,
-  completeTask,
-  addTaskNote,
+  getTasksForPatient,
+  updateTaskStatus,
   getDashboardStats,
+  isInitialized,
+  clearData,
 } from './patientService';
-
-export { SEED_PATIENTS } from './seedData';
