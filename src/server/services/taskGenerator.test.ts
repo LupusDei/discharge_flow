@@ -13,6 +13,16 @@ import {
   getOverdueTasks,
   getPendingTasks,
   getUpcomingTasks,
+  completeTask,
+  addTaskNote,
+  updateTask,
+  completeTaskInList,
+  addNoteToTaskInList,
+  findTaskById,
+  getTasksByPatientId,
+  getCompletedTasks,
+  getTasksCompletedInRange,
+  getTasksCompletedToday,
 } from './taskGenerator';
 
 const createTestPatient = (overrides: Partial<Patient> = {}): Patient => ({
@@ -552,6 +562,354 @@ describe('TaskGenerator', () => {
 
       expect(upcoming).toHaveLength(1);
       expect(upcoming[0].id).toBe('task_2');
+    });
+  });
+
+  // =============================================================================
+  // Task Status Transitions
+  // =============================================================================
+
+  describe('completeTask', () => {
+    const createTestTask = (overrides: Partial<Task> = {}): Task => ({
+      id: 'task_1',
+      patientId: 'MRN0001',
+      type: 'contact_patient',
+      status: 'pending',
+      dueStart: new Date('2026-01-14T10:00:00'),
+      dueEnd: new Date('2026-01-15T10:00:00'),
+      ...overrides,
+    });
+
+    it('should mark task as completed', () => {
+      const task = createTestTask();
+      const result = completeTask(task);
+      expect(result.status).toBe('completed');
+    });
+
+    it('should set completedAt timestamp', () => {
+      const task = createTestTask();
+      const completedAt = new Date('2026-01-14T14:00:00');
+      const result = completeTask(task, undefined, completedAt);
+      expect(result.completedAt).toEqual(completedAt);
+    });
+
+    it('should set completedBy when provided', () => {
+      const task = createTestTask();
+      const result = completeTask(task, 'nurse-jane');
+      expect(result.completedBy).toBe('nurse-jane');
+    });
+
+    it('should not mutate original task', () => {
+      const task = createTestTask();
+      completeTask(task, 'nurse-jane');
+      expect(task.status).toBe('pending');
+      expect(task.completedBy).toBeUndefined();
+    });
+  });
+
+  describe('addTaskNote', () => {
+    const createTestTask = (overrides: Partial<Task> = {}): Task => ({
+      id: 'task_1',
+      patientId: 'MRN0001',
+      type: 'contact_patient',
+      status: 'pending',
+      dueStart: new Date('2026-01-14T10:00:00'),
+      dueEnd: new Date('2026-01-15T10:00:00'),
+      ...overrides,
+    });
+
+    it('should add note to task', () => {
+      const task = createTestTask();
+      const result = addTaskNote(task, 'Patient called back');
+      expect(result.notes).toBe('Patient called back');
+    });
+
+    it('should replace existing note', () => {
+      const task = createTestTask({ notes: 'Old note' });
+      const result = addTaskNote(task, 'New note');
+      expect(result.notes).toBe('New note');
+    });
+
+    it('should not mutate original task', () => {
+      const task = createTestTask();
+      addTaskNote(task, 'New note');
+      expect(task.notes).toBeUndefined();
+    });
+  });
+
+  describe('updateTask', () => {
+    const createTestTask = (overrides: Partial<Task> = {}): Task => ({
+      id: 'task_1',
+      patientId: 'MRN0001',
+      type: 'contact_patient',
+      status: 'pending',
+      dueStart: new Date('2026-01-14T10:00:00'),
+      dueEnd: new Date('2026-01-15T10:00:00'),
+      ...overrides,
+    });
+
+    it('should apply partial updates', () => {
+      const task = createTestTask();
+      const result = updateTask(task, { notes: 'Updated note' });
+      expect(result.notes).toBe('Updated note');
+      expect(result.status).toBe('pending'); // Unchanged
+    });
+
+    it('should apply multiple updates', () => {
+      const task = createTestTask();
+      const completedAt = new Date('2026-01-14T14:00:00');
+      const result = updateTask(task, {
+        status: 'completed',
+        completedAt,
+        completedBy: 'nurse-jane',
+      });
+      expect(result.status).toBe('completed');
+      expect(result.completedAt).toEqual(completedAt);
+      expect(result.completedBy).toBe('nurse-jane');
+    });
+  });
+
+  describe('completeTaskInList', () => {
+    it('should complete task in list by ID', () => {
+      const tasks: Task[] = [
+        {
+          id: 'task_1',
+          patientId: 'MRN0001',
+          type: 'contact_patient',
+          status: 'pending',
+          dueStart: new Date('2026-01-14T10:00:00'),
+          dueEnd: new Date('2026-01-15T10:00:00'),
+        },
+        {
+          id: 'task_2',
+          patientId: 'MRN0001',
+          type: 'medication_reconciliation',
+          status: 'pending',
+          dueStart: new Date('2026-01-14T10:00:00'),
+          dueEnd: new Date('2026-01-16T10:00:00'),
+        },
+      ];
+
+      const result = completeTaskInList(tasks, 'task_1', 'nurse-jane');
+
+      expect(result.completedTask).not.toBeNull();
+      expect(result.completedTask?.status).toBe('completed');
+      expect(result.completedTask?.completedBy).toBe('nurse-jane');
+      expect(result.tasks[0].status).toBe('completed');
+      expect(result.tasks[1].status).toBe('pending'); // Other task unchanged
+    });
+
+    it('should return null for non-existent task', () => {
+      const tasks: Task[] = [
+        {
+          id: 'task_1',
+          patientId: 'MRN0001',
+          type: 'contact_patient',
+          status: 'pending',
+          dueStart: new Date('2026-01-14T10:00:00'),
+          dueEnd: new Date('2026-01-15T10:00:00'),
+        },
+      ];
+
+      const result = completeTaskInList(tasks, 'non_existent');
+
+      expect(result.completedTask).toBeNull();
+      expect(result.tasks).toEqual(tasks);
+    });
+  });
+
+  describe('addNoteToTaskInList', () => {
+    it('should add note to task in list by ID', () => {
+      const tasks: Task[] = [
+        {
+          id: 'task_1',
+          patientId: 'MRN0001',
+          type: 'contact_patient',
+          status: 'pending',
+          dueStart: new Date('2026-01-14T10:00:00'),
+          dueEnd: new Date('2026-01-15T10:00:00'),
+        },
+      ];
+
+      const result = addNoteToTaskInList(tasks, 'task_1', 'Left voicemail');
+
+      expect(result.updatedTask?.notes).toBe('Left voicemail');
+      expect(result.tasks[0].notes).toBe('Left voicemail');
+    });
+
+    it('should return null for non-existent task', () => {
+      const tasks: Task[] = [];
+      const result = addNoteToTaskInList(tasks, 'non_existent', 'Note');
+      expect(result.updatedTask).toBeNull();
+    });
+  });
+
+  describe('findTaskById', () => {
+    it('should find task by ID', () => {
+      const tasks: Task[] = [
+        {
+          id: 'task_1',
+          patientId: 'MRN0001',
+          type: 'contact_patient',
+          status: 'pending',
+          dueStart: new Date('2026-01-14T10:00:00'),
+          dueEnd: new Date('2026-01-15T10:00:00'),
+        },
+        {
+          id: 'task_2',
+          patientId: 'MRN0002',
+          type: 'medication_reconciliation',
+          status: 'pending',
+          dueStart: new Date('2026-01-14T10:00:00'),
+          dueEnd: new Date('2026-01-16T10:00:00'),
+        },
+      ];
+
+      const result = findTaskById(tasks, 'task_2');
+      expect(result?.id).toBe('task_2');
+      expect(result?.patientId).toBe('MRN0002');
+    });
+
+    it('should return null for non-existent task', () => {
+      const tasks: Task[] = [];
+      const result = findTaskById(tasks, 'non_existent');
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('getTasksByPatientId', () => {
+    it('should filter tasks by patient ID', () => {
+      const tasks: Task[] = [
+        {
+          id: 'task_1',
+          patientId: 'MRN0001',
+          type: 'contact_patient',
+          status: 'pending',
+          dueStart: new Date('2026-01-14T10:00:00'),
+          dueEnd: new Date('2026-01-15T10:00:00'),
+        },
+        {
+          id: 'task_2',
+          patientId: 'MRN0002',
+          type: 'contact_patient',
+          status: 'pending',
+          dueStart: new Date('2026-01-14T10:00:00'),
+          dueEnd: new Date('2026-01-15T10:00:00'),
+        },
+        {
+          id: 'task_3',
+          patientId: 'MRN0001',
+          type: 'medication_reconciliation',
+          status: 'pending',
+          dueStart: new Date('2026-01-14T10:00:00'),
+          dueEnd: new Date('2026-01-16T10:00:00'),
+        },
+      ];
+
+      const result = getTasksByPatientId(tasks, 'MRN0001');
+      expect(result).toHaveLength(2);
+      expect(result.every((t) => t.patientId === 'MRN0001')).toBe(true);
+    });
+  });
+
+  describe('getCompletedTasks', () => {
+    it('should return only completed tasks', () => {
+      const tasks: Task[] = [
+        {
+          id: 'task_1',
+          patientId: 'MRN0001',
+          type: 'contact_patient',
+          status: 'completed',
+          dueStart: new Date('2026-01-14T10:00:00'),
+          dueEnd: new Date('2026-01-15T10:00:00'),
+          completedAt: new Date('2026-01-14T12:00:00'),
+        },
+        {
+          id: 'task_2',
+          patientId: 'MRN0001',
+          type: 'medication_reconciliation',
+          status: 'pending',
+          dueStart: new Date('2026-01-14T10:00:00'),
+          dueEnd: new Date('2026-01-16T10:00:00'),
+        },
+      ];
+
+      const result = getCompletedTasks(tasks);
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('task_1');
+    });
+  });
+
+  describe('getTasksCompletedInRange', () => {
+    it('should return tasks completed within date range', () => {
+      const tasks: Task[] = [
+        {
+          id: 'task_1',
+          patientId: 'MRN0001',
+          type: 'contact_patient',
+          status: 'completed',
+          dueStart: new Date('2026-01-14T10:00:00'),
+          dueEnd: new Date('2026-01-15T10:00:00'),
+          completedAt: new Date('2026-01-14T12:00:00'),
+        },
+        {
+          id: 'task_2',
+          patientId: 'MRN0001',
+          type: 'medication_reconciliation',
+          status: 'completed',
+          dueStart: new Date('2026-01-14T10:00:00'),
+          dueEnd: new Date('2026-01-16T10:00:00'),
+          completedAt: new Date('2026-01-15T12:00:00'),
+        },
+        {
+          id: 'task_3',
+          patientId: 'MRN0001',
+          type: 'followup_scheduling',
+          status: 'pending',
+          dueStart: new Date('2026-01-14T10:00:00'),
+          dueEnd: new Date('2026-01-16T10:00:00'),
+        },
+      ];
+
+      const result = getTasksCompletedInRange(
+        tasks,
+        new Date('2026-01-14T00:00:00'),
+        new Date('2026-01-14T23:59:59')
+      );
+
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('task_1');
+    });
+  });
+
+  describe('getTasksCompletedToday', () => {
+    it('should return tasks completed today', () => {
+      const now = new Date('2026-01-14T14:00:00');
+      const tasks: Task[] = [
+        {
+          id: 'task_1',
+          patientId: 'MRN0001',
+          type: 'contact_patient',
+          status: 'completed',
+          dueStart: new Date('2026-01-14T10:00:00'),
+          dueEnd: new Date('2026-01-15T10:00:00'),
+          completedAt: new Date('2026-01-14T12:00:00'),
+        },
+        {
+          id: 'task_2',
+          patientId: 'MRN0001',
+          type: 'medication_reconciliation',
+          status: 'completed',
+          dueStart: new Date('2026-01-13T10:00:00'),
+          dueEnd: new Date('2026-01-14T10:00:00'),
+          completedAt: new Date('2026-01-13T12:00:00'), // Yesterday
+        },
+      ];
+
+      const result = getTasksCompletedToday(tasks, now);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('task_1');
     });
   });
 });
