@@ -1,0 +1,162 @@
+/* Button Component */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Button Sizes */
+.button--sm {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+}
+
+.button--md {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+}
+
+.button--lg {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+}
+
+/* Button Variants */
+.button--primary {
+  background-color: #2563eb;
+  color: white;
+}
+
+.button--primary:hover:not(:disabled) {
+  background-color: #1d4ed8;
+}
+
+.button--secondary {
+  background-color: #6b7280;
+  color: white;
+}
+
+.button--secondary:hover:not(:disabled) {
+  background-color: #4b5563;
+}
+
+.button--danger {
+  background-color: #dc2626;
+  color: white;
+}
+
+.button--danger:hover:not(:disabled) {
+  background-color: #b91c1c;
+}
+
+.button--ghost {
+  background-color: transparent;
+  color: #374151;
+}
+
+.button--ghost:hover:not(:disabled) {
+  background-color: #f3f4f6;
+}
+
+/* Card Component */
+.card {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.card__header {
+  padding: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.card__body {
+  padding: 1rem;
+}
+
+.card__footer {
+  padding: 1rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* Badge Component */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: 9999px;
+}
+
+.badge--default {
+  background-color: #e5e7eb;
+  color: #374151;
+}
+
+.badge--success {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.badge--warning {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.badge--danger {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.badge--info {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+/* Table Component */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.table__head {
+  background-color: #f9fafb;
+}
+
+.table__header {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: #6b7280;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.table__body .table__row:not(:last-child) {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.table__body .table__row:hover {
+  background-color: #f9fafb;
+}
+
+.table__cell {
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+}
