@@ -33,7 +33,7 @@ describe('Shared types', () => {
   it('Task type has correct shape', () => {
     const task: Task = {
       id: '1',
-      patientId: 'patient-1',
+      patientId: 'MRN001',
       type: 'contact_patient',
       status: 'pending',
       dueStart: new Date(),
