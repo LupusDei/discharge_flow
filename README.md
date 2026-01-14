@@ -126,13 +126,48 @@ Task Engine            │                  │
 ### Patient
 ```typescript
 interface Patient {
-  id: string;
-  name: string;
-  dischargeDate: Date;
-  dischargeDestination: string; // "Home", "Skilled Nursing Facility", etc.
-  riskLevel: "standard" | "high";
-  assignedTo: string; // Assistant ID
+  // Identifiers
+  patientId: string;              // MRN (Medical Record Number)
+  patientName: string;
+
+  // Demographics
+  dob: string;                    // Date of birth (YYYY-MM-DD)
+  gender: "M" | "F";
+  phone: string | null;           // May be empty
+  email: string | null;           // May be empty
+  preferredLanguage: string;      // English, Spanish, Korean, Mandarin, etc.
+
+  // Admission/Discharge
+  admissionDate: string;          // YYYY-MM-DD
+  dischargeDate: string;          // YYYY-MM-DD - Key for task timing
+  dischargeTime: string | null;   // HH:MM - May be empty
+  lengthOfStay: number;           // Days
+
+  // Clinical
+  primaryDiagnosis: string;
+  dischargeDisposition: DischargeDisposition;  // Key for facility handoff task
+  dischargeMedications: string;   // Comma-separated list
+  allergies: string | null;       // NKDA = No Known Drug Allergies
+
+  // Care Team
+  attendingPhysician: string;
+  pcpName: string | null;         // Primary care physician - may be empty
+  pcpPhone: string | null;        // May be empty
+
+  // Risk Assessment
+  readmissionRiskScore: RiskLevel;  // Key for 48hr check-in task
+  fallRisk: RiskLevel | null;       // May be empty
+
+  // Other
+  notes: string | null;           // Free text notes
 }
+
+type DischargeDisposition =
+  | "Home"
+  | "Home with home health"
+  | "Skilled nursing facility";
+
+type RiskLevel = "Low" | "Medium" | "High" | "Very High";
 ```
 
 ### Task
@@ -141,18 +176,53 @@ interface Task {
   id: string;
   patientId: string;
   type: TaskType;
-  status: "pending" | "completed" | "overdue";
-  dueDate: Date;
+  status: TaskStatus;
+  dueStart: Date;                 // When task window opens
+  dueEnd: Date;                   // When task window closes (deadline)
   completedAt?: Date;
   completedBy?: string;
+  notes?: string;
 }
 
+type TaskStatus = "pending" | "completed" | "overdue" | "upcoming";
+
 type TaskType =
-  | "contact_patient"
-  | "medication_reconciliation"
-  | "followup_scheduling"
-  | "facility_handoff"
-  | "checkin_call";
+  | "contact_patient"           // Within 24hrs - all patients
+  | "medication_reconciliation" // Within 48hrs - all patients
+  | "followup_scheduling"       // Within 48hrs - all patients
+  | "facility_handoff"          // Within 24hrs - SNF only
+  | "checkin_call";             // 48-72hrs - High/Very High risk only
+```
+
+### Task Generation Rules
+```typescript
+const TASK_RULES: Record<TaskType, TaskRule> = {
+  contact_patient: {
+    windowStart: 0,      // hours after discharge
+    windowEnd: 24,
+    condition: () => true,  // All patients
+  },
+  medication_reconciliation: {
+    windowStart: 0,
+    windowEnd: 48,
+    condition: () => true,  // All patients
+  },
+  followup_scheduling: {
+    windowStart: 0,
+    windowEnd: 48,
+    condition: () => true,  // All patients
+  },
+  facility_handoff: {
+    windowStart: 0,
+    windowEnd: 24,
+    condition: (p) => p.dischargeDisposition === "Skilled nursing facility",
+  },
+  checkin_call: {
+    windowStart: 48,
+    windowEnd: 72,
+    condition: (p) => ["High", "Very High"].includes(p.readmissionRiskScore),
+  },
+};
 ```
 
 ## API Endpoints
@@ -184,10 +254,34 @@ npm start
 
 ## CSV Data Format
 
-Expected columns in patient CSV:
-- `patient_id`
-- `patient_name`
-- `discharge_date`
-- `discharge_destination`
-- `risk_level`
-- `assigned_assistant`
+The `patient_data.csv` file contains the following columns:
+
+| Column | Type | Required | Description |
+|--------|------|----------|-------------|
+| `patient_id` | string | Yes | Medical Record Number (MRN) |
+| `patient_name` | string | Yes | Patient full name |
+| `dob` | date | Yes | Date of birth (YYYY-MM-DD) |
+| `gender` | string | Yes | M or F |
+| `phone` | string | No | Contact phone number |
+| `email` | string | No | Contact email |
+| `preferred_language` | string | Yes | English, Spanish, Korean, Mandarin, etc. |
+| `admission_date` | date | Yes | YYYY-MM-DD |
+| `discharge_date` | date | Yes | YYYY-MM-DD - Key for task timing |
+| `discharge_time` | time | No | HH:MM format |
+| `length_of_stay` | number | Yes | Days |
+| `primary_diagnosis` | string | Yes | Diagnosis description |
+| `discharge_disposition` | string | Yes | Home, Home with home health, Skilled nursing facility |
+| `discharge_medications` | string | Yes | Comma-separated medication list |
+| `allergies` | string | No | NKDA = No Known Drug Allergies |
+| `attending_physician` | string | Yes | Attending physician name |
+| `pcp_name` | string | No | Primary care physician name |
+| `pcp_phone` | string | No | PCP phone number |
+| `readmission_risk_score` | string | Yes | Low, Medium, High, Very High |
+| `fall_risk` | string | No | Low, Medium, High, Very High |
+| `notes` | string | No | Free text notes |
+
+### Key Fields for Task Logic
+
+- **`discharge_disposition`**: "Skilled nursing facility" triggers Facility Handoff task
+- **`readmission_risk_score`**: "High" or "Very High" triggers 48hr Check-in Call task
+- **`discharge_date`** + **`discharge_time`**: Used to calculate all task deadlines
