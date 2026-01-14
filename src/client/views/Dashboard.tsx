@@ -47,16 +47,10 @@ export function Dashboard() {
     setSelectedPatient(null);
   };
 
-  // Get urgent tasks (overdue or due soon)
+  // Get urgent tasks (overdue or due soon), sorted by due date
   const urgentTasks = tasks
     .filter(t => t.status === 'overdue' || t.status === 'pending')
-    .sort((a, b) => {
-      // Overdue first, then by due date
-      if (a.status === 'overdue' && b.status !== 'overdue') return -1;
-      if (b.status === 'overdue' && a.status !== 'overdue') return 1;
-      return new Date(a.dueEnd).getTime() - new Date(b.dueEnd).getTime();
-    })
-    .slice(0, 5);
+    .sort((a, b) => new Date(a.dueEnd).getTime() - new Date(b.dueEnd).getTime());
 
   // Get task counts per patient for cards
   const getPatientTaskCounts = (patientId: string) => {
@@ -162,15 +156,28 @@ export function Dashboard() {
       {urgentTasks.length > 0 && (
         <section className="mb-8">
           <h2 className="text-xl font-semibold mb-4">Urgent Tasks</h2>
-          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+          <div className="task-list">
             {urgentTasks.map(task => {
               const patient = patients.find(p => p.patientId === task.patientId);
               return (
-                <div key={task.id} className="urgent-task">
-                  <div className="urgent-task__patient text-sm text-gray mb-2">
-                    {patient?.patientName} ({task.patientId})
+                <div key={task.id} className="task-list__item">
+                  <button
+                    className="task-list__checkbox"
+                    onClick={() => handleCompleteTask(task.id)}
+                    aria-label="Mark task complete"
+                  />
+                  <div className="task-list__content">
+                    <div className="task-list__header">
+                      <span className="task-list__type">{task.type.replace(/_/g, ' ')}</span>
+                      <Badge variant={task.status === 'overdue' ? 'danger' : 'warning'}>
+                        {task.status}
+                      </Badge>
+                    </div>
+                    <div className="task-list__meta">
+                      <span className="task-list__patient">{patient?.patientName}</span>
+                      <span className="task-list__due">Due: {new Date(task.dueEnd).toLocaleDateString()}</span>
+                    </div>
                   </div>
-                  <TaskCard task={task} onComplete={handleCompleteTask} />
                 </div>
               );
             })}
