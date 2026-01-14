@@ -26,3 +26,18 @@ export {
   getTasksCompletedInRange,
   getTasksCompletedToday,
 } from './taskGenerator';
+
+export {
+  isValidTransition,
+  canCompleteTask,
+  completeTask,
+  addTaskNotes,
+  findTaskById,
+  completeTaskInCollection,
+  addNotesToTaskInCollection,
+  serializeTasksForStorage,
+  deserializeTasksFromStorage,
+  TaskStore,
+} from './taskStateManager';
+
+export type { TaskCompletionResult } from './taskStateManager';
