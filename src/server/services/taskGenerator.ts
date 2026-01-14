@@ -155,3 +155,130 @@ export function getPendingTasks(tasks: Task[], now: Date = new Date()): Task[] {
 export function getUpcomingTasks(tasks: Task[], now: Date = new Date()): Task[] {
   return tasks.filter((task) => calculateTaskStatus(task, now) === 'upcoming');
 }
+
+// =============================================================================
+// Task Status Transitions
+// =============================================================================
+
+/**
+ * Mark a task as completed.
+ * Returns a new task object with updated status, completedAt, and completedBy.
+ */
+export function completeTask(task: Task, completedBy?: string, completedAt: Date = new Date()): Task {
+  return {
+    ...task,
+    status: 'completed',
+    completedAt,
+    completedBy,
+  };
+}
+
+/**
+ * Add or update a note on a task.
+ * Returns a new task object with the note added.
+ */
+export function addTaskNote(task: Task, note: string): Task {
+  return {
+    ...task,
+    notes: note,
+  };
+}
+
+/**
+ * Apply updates to a task.
+ * Returns a new task object with the updates applied.
+ */
+export function updateTask(task: Task, updates: Partial<Pick<Task, 'status' | 'notes' | 'completedAt' | 'completedBy'>>): Task {
+  return {
+    ...task,
+    ...updates,
+  };
+}
+
+/**
+ * Complete a task in a task list by ID.
+ * Returns a new array with the updated task, or null if task not found.
+ */
+export function completeTaskInList(
+  tasks: Task[],
+  taskId: string,
+  completedBy?: string,
+  completedAt: Date = new Date()
+): { tasks: Task[]; completedTask: Task | null } {
+  const taskIndex = tasks.findIndex((t) => t.id === taskId);
+
+  if (taskIndex === -1) {
+    return { tasks, completedTask: null };
+  }
+
+  const completedTask = completeTask(tasks[taskIndex], completedBy, completedAt);
+  const newTasks = [...tasks];
+  newTasks[taskIndex] = completedTask;
+
+  return { tasks: newTasks, completedTask };
+}
+
+/**
+ * Add a note to a task in a task list by ID.
+ * Returns a new array with the updated task, or null if task not found.
+ */
+export function addNoteToTaskInList(
+  tasks: Task[],
+  taskId: string,
+  note: string
+): { tasks: Task[]; updatedTask: Task | null } {
+  const taskIndex = tasks.findIndex((t) => t.id === taskId);
+
+  if (taskIndex === -1) {
+    return { tasks, updatedTask: null };
+  }
+
+  const updatedTask = addTaskNote(tasks[taskIndex], note);
+  const newTasks = [...tasks];
+  newTasks[taskIndex] = updatedTask;
+
+  return { tasks: newTasks, updatedTask };
+}
+
+/**
+ * Find a task by ID in a task list.
+ */
+export function findTaskById(tasks: Task[], taskId: string): Task | null {
+  return tasks.find((t) => t.id === taskId) || null;
+}
+
+/**
+ * Get tasks for a specific patient.
+ */
+export function getTasksByPatientId(tasks: Task[], patientId: string): Task[] {
+  return tasks.filter((t) => t.patientId === patientId);
+}
+
+/**
+ * Get completed tasks.
+ */
+export function getCompletedTasks(tasks: Task[]): Task[] {
+  return tasks.filter((t) => t.status === 'completed');
+}
+
+/**
+ * Get tasks completed within a time range.
+ */
+export function getTasksCompletedInRange(tasks: Task[], startDate: Date, endDate: Date): Task[] {
+  return tasks.filter((t) => {
+    if (t.status !== 'completed' || !t.completedAt) {
+      return false;
+    }
+    const completedAt = t.completedAt instanceof Date ? t.completedAt : new Date(t.completedAt);
+    return completedAt >= startDate && completedAt <= endDate;
+  });
+}
+
+/**
+ * Get tasks completed today.
+ */
+export function getTasksCompletedToday(tasks: Task[], now: Date = new Date()): Task[] {
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  return getTasksCompletedInRange(tasks, startOfDay, endOfDay);
+}
