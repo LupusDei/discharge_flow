@@ -160,3 +160,43 @@
   padding: 0.75rem 1rem;
   font-size: 0.875rem;
 }
+
+/* TaskCard Component */
+.task-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.task-card__type {
+  font-weight: 600;
+  color: #111827;
+}
+
+.task-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.task-card__due,
+.task-card__completed,
+.task-card__notes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+}
+
+.task-card__label {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.task-card__value {
+  color: #374151;
+}
+
+.task-card__by {
+  color: #9ca3af;
+}
