@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, CardBody, Badge, PatientCard, TaskCard } from '../components';
 import {
-  getPatients,
-  getTasks,
+  getAllPatients,
+  getAllTasks,
   getDashboardStats,
-  isInitialized,
-  initializeFromCSV,
-  updateTaskStatus,
-} from '../services/patientService';
+  initializeDatabase,
+  completeTask,
+  getTasksByPatientId,
+} from '../services';
 import type { Patient, Task } from '@shared/types';
 
 interface DashboardStats {
@@ -15,37 +15,27 @@ interface DashboardStats {
   pendingTasks: number;
   overdueTasks: number;
   completedToday: number;
+  urgentTasks: number;
 }
 
+// Initialize database on module load
+initializeDatabase();
+
 export function Dashboard() {
-  const [loading, setLoading] = useState(true);
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [stats, setStats] = useState<DashboardStats>({
-    totalPatients: 0,
-    pendingTasks: 0,
-    overdueTasks: 0,
-    completedToday: 0,
-  });
+  const [patients, setPatients] = useState<Patient[]>(() => getAllPatients());
+  const [tasks, setTasks] = useState<Task[]>(() => getAllTasks());
+  const [stats, setStats] = useState<DashboardStats>(() => getDashboardStats());
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
 
-  useEffect(() => {
-    async function loadData() {
-      if (!isInitialized()) {
-        await initializeFromCSV();
-      }
-      setPatients(getPatients());
-      setTasks(getTasks());
-      setStats(getDashboardStats());
-      setLoading(false);
-    }
-    loadData();
-  }, []);
+  const refreshData = () => {
+    setPatients(getAllPatients());
+    setTasks(getAllTasks());
+    setStats(getDashboardStats());
+  };
 
   const handleCompleteTask = (taskId: string) => {
-    updateTaskStatus(taskId, 'completed', 'Current User');
-    setTasks(getTasks());
-    setStats(getDashboardStats());
+    completeTask(taskId, 'Current User');
+    refreshData();
   };
 
   const handleViewPatient = (patientId: string) => {
@@ -64,7 +54,7 @@ export function Dashboard() {
       // Overdue first, then by due date
       if (a.status === 'overdue' && b.status !== 'overdue') return -1;
       if (b.status === 'overdue' && a.status !== 'overdue') return 1;
-      return a.dueEnd.getTime() - b.dueEnd.getTime();
+      return new Date(a.dueEnd).getTime() - new Date(b.dueEnd).getTime();
     })
     .slice(0, 5);
 
@@ -77,17 +67,9 @@ export function Dashboard() {
     };
   };
 
-  if (loading) {
-    return (
-      <div className="dashboard">
-        <p>Loading patient data...</p>
-      </div>
-    );
-  }
-
   // Patient detail view
   if (selectedPatient) {
-    const patientTasks = tasks.filter(t => t.patientId === selectedPatient.patientId);
+    const patientTasks = getTasksByPatientId(selectedPatient.patientId);
 
     return (
       <div className="dashboard">

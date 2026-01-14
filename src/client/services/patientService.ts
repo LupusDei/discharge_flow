@@ -1,40 +1,49 @@
-import { Patient, Task, TaskStatus, TASK_RULES } from '@shared/types';
-import { parsePatientCSV } from '../utils/csvParser';
+import { Patient, Task, TaskStatus, TASK_RULES } from '../../shared/types';
+import { SEED_PATIENTS } from './seedData';
 
-const STORAGE_KEY = 'discharge_flow_patients';
-const TASKS_STORAGE_KEY = 'discharge_flow_tasks';
+const STORAGE_KEYS = {
+  PATIENTS: 'discharge_flow_patients',
+  TASKS: 'discharge_flow_tasks',
+  INITIALIZED: 'discharge_flow_initialized',
+};
+
+/**
+ * Generate a unique ID for tasks
+ */
+function generateTaskId(): string {
+  return `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+/**
+ * Calculate the discharge datetime from patient data
+ */
+function getDischargeDateTime(patient: Patient): Date {
+  const dateStr = patient.dischargeDate;
+  const timeStr = patient.dischargeTime || '00:00';
+  return new Date(`${dateStr}T${timeStr}:00`);
+}
 
 /**
  * Generate tasks for a patient based on task rules
  */
 function generateTasksForPatient(patient: Patient): Task[] {
-  const dischargeDatetime = new Date(patient.dischargeDate);
-  if (patient.dischargeTime) {
-    const [hours, minutes] = patient.dischargeTime.split(':').map(Number);
-    dischargeDatetime.setHours(hours, minutes);
-  }
-
-  const now = new Date();
+  const dischargeDateTime = getDischargeDateTime(patient);
   const tasks: Task[] = [];
 
   for (const rule of TASK_RULES) {
-    if (!rule.condition(patient)) continue;
-
-    const dueStart = new Date(dischargeDatetime.getTime() + rule.windowStartHours * 60 * 60 * 1000);
-    const dueEnd = new Date(dischargeDatetime.getTime() + rule.windowEndHours * 60 * 60 * 1000);
-
-    let status: TaskStatus = 'pending';
-    if (now < dueStart) {
-      status = 'upcoming';
-    } else if (now > dueEnd) {
-      status = 'overdue';
+    // Check if this task applies to this patient
+    if (!rule.condition(patient)) {
+      continue;
     }
 
+    const dueStart = new Date(dischargeDateTime.getTime() + rule.windowStartHours * 60 * 60 * 1000);
+    const dueEnd = new Date(dischargeDateTime.getTime() + rule.windowEndHours * 60 * 60 * 1000);
+
     tasks.push({
-      id: `${patient.patientId}-${rule.type}`,
+      id: generateTaskId(),
       patientId: patient.patientId,
       type: rule.type,
-      status,
+      status: 'pending',
       dueStart,
       dueEnd,
     });
@@ -44,152 +53,238 @@ function generateTasksForPatient(patient: Patient): Task[] {
 }
 
 /**
- * Load patients from localStorage or initialize with empty array
+ * Calculate the current status of a task based on time
  */
-export function getPatients(): Patient[] {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored) {
-    return JSON.parse(stored);
+function calculateTaskStatus(task: Task): TaskStatus {
+  if (task.status === 'completed') {
+    return 'completed';
   }
-  return [];
-}
 
-/**
- * Save patients to localStorage
- */
-export function savePatients(patients: Patient[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(patients));
-}
+  const now = new Date();
+  const dueStart = new Date(task.dueStart);
+  const dueEnd = new Date(task.dueEnd);
 
-/**
- * Load tasks from localStorage or initialize with empty array
- */
-export function getTasks(): Task[] {
-  const stored = localStorage.getItem(TASKS_STORAGE_KEY);
-  if (stored) {
-    const tasks = JSON.parse(stored);
-    // Convert date strings back to Date objects
-    return tasks.map((t: Task) => ({
-      ...t,
-      dueStart: new Date(t.dueStart),
-      dueEnd: new Date(t.dueEnd),
-      completedAt: t.completedAt ? new Date(t.completedAt) : undefined,
-    }));
+  if (now < dueStart) {
+    return 'upcoming';
+  } else if (now > dueEnd) {
+    return 'overdue';
+  } else {
+    return 'pending';
   }
-  return [];
 }
 
 /**
- * Save tasks to localStorage
+ * Initialize the database with seed data if not already initialized
  */
-export function saveTasks(tasks: Task[]): void {
-  localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(tasks));
-}
+export function initializeDatabase(): void {
+  const initialized = localStorage.getItem(STORAGE_KEYS.INITIALIZED);
 
-/**
- * Initialize the database with CSV data
- */
-export async function initializeFromCSV(): Promise<{ patients: Patient[]; tasks: Task[] }> {
-  try {
-    const response = await fetch('/data/patient_data.csv');
-    if (!response.ok) {
-      throw new Error(`Failed to fetch CSV: ${response.status}`);
-    }
-    const csvContent = await response.text();
-    const patients = parsePatientCSV(csvContent);
+  if (!initialized) {
+    // Store seed patients
+    localStorage.setItem(STORAGE_KEYS.PATIENTS, JSON.stringify(SEED_PATIENTS));
 
-    // Generate tasks for all patients
+    // Generate tasks for each patient
     const allTasks: Task[] = [];
-    for (const patient of patients) {
+    for (const patient of SEED_PATIENTS) {
       const tasks = generateTasksForPatient(patient);
       allTasks.push(...tasks);
     }
+    localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(allTasks));
 
-    savePatients(patients);
-    saveTasks(allTasks);
-
-    return { patients, tasks: allTasks };
-  } catch (error) {
-    console.error('Failed to initialize from CSV:', error);
-    return { patients: [], tasks: [] };
+    // Mark as initialized
+    localStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
   }
 }
 
 /**
- * Get patient by ID
+ * Reset the database to initial seed state
  */
-export function getPatientById(patientId: string): Patient | undefined {
-  const patients = getPatients();
-  return patients.find(p => p.patientId === patientId);
+export function resetDatabase(): void {
+  localStorage.removeItem(STORAGE_KEYS.PATIENTS);
+  localStorage.removeItem(STORAGE_KEYS.TASKS);
+  localStorage.removeItem(STORAGE_KEYS.INITIALIZED);
+  initializeDatabase();
+}
+
+// =============================================================================
+// Patient Operations
+// =============================================================================
+
+/**
+ * Get all patients
+ */
+export function getAllPatients(): Patient[] {
+  initializeDatabase();
+  const data = localStorage.getItem(STORAGE_KEYS.PATIENTS);
+  return data ? JSON.parse(data) : [];
+}
+
+/**
+ * Get a patient by ID
+ */
+export function getPatientById(patientId: string): Patient | null {
+  const patients = getAllPatients();
+  return patients.find((p) => p.patientId === patientId) || null;
+}
+
+/**
+ * Search patients by name
+ */
+export function searchPatientsByName(query: string): Patient[] {
+  const patients = getAllPatients();
+  const lowerQuery = query.toLowerCase();
+  return patients.filter((p) => p.patientName.toLowerCase().includes(lowerQuery));
+}
+
+// =============================================================================
+// Task Operations
+// =============================================================================
+
+/**
+ * Get all tasks (with updated status based on current time)
+ */
+export function getAllTasks(): Task[] {
+  initializeDatabase();
+  const data = localStorage.getItem(STORAGE_KEYS.TASKS);
+  const tasks: Task[] = data ? JSON.parse(data) : [];
+
+  // Update status based on current time and convert date strings back to Date objects
+  return tasks.map((task) => ({
+    ...task,
+    dueStart: new Date(task.dueStart),
+    dueEnd: new Date(task.dueEnd),
+    completedAt: task.completedAt ? new Date(task.completedAt) : undefined,
+    status: calculateTaskStatus({
+      ...task,
+      dueStart: new Date(task.dueStart),
+      dueEnd: new Date(task.dueEnd),
+    }),
+  }));
 }
 
 /**
  * Get tasks for a specific patient
  */
-export function getTasksForPatient(patientId: string): Task[] {
-  const tasks = getTasks();
-  return tasks.filter(t => t.patientId === patientId);
+export function getTasksByPatientId(patientId: string): Task[] {
+  const tasks = getAllTasks();
+  return tasks.filter((t) => t.patientId === patientId);
 }
 
 /**
- * Update task status
+ * Get tasks by status
  */
-export function updateTaskStatus(taskId: string, status: TaskStatus, completedBy?: string): Task | undefined {
-  const tasks = getTasks();
-  const taskIndex = tasks.findIndex(t => t.id === taskId);
+export function getTasksByStatus(status: TaskStatus): Task[] {
+  const tasks = getAllTasks();
+  return tasks.filter((t) => t.status === status);
+}
 
-  if (taskIndex === -1) return undefined;
+/**
+ * Get urgent tasks (due within specified hours, default 4)
+ */
+export function getUrgentTasks(hoursThreshold: number = 4): Task[] {
+  const tasks = getAllTasks();
+  const now = new Date();
+  const threshold = new Date(now.getTime() + hoursThreshold * 60 * 60 * 1000);
 
-  const task = tasks[taskIndex];
-  task.status = status;
+  return tasks.filter((t) => {
+    if (t.status === 'completed') return false;
+    const dueEnd = new Date(t.dueEnd);
+    return dueEnd <= threshold && dueEnd >= now;
+  });
+}
 
-  if (status === 'completed') {
-    task.completedAt = new Date();
-    task.completedBy = completedBy;
+/**
+ * Get overdue tasks
+ */
+export function getOverdueTasks(): Task[] {
+  return getTasksByStatus('overdue');
+}
+
+/**
+ * Mark a task as completed
+ */
+export function completeTask(taskId: string, completedBy?: string): Task | null {
+  const data = localStorage.getItem(STORAGE_KEYS.TASKS);
+  const tasks: Task[] = data ? JSON.parse(data) : [];
+
+  const taskIndex = tasks.findIndex((t) => t.id === taskId);
+  if (taskIndex === -1) {
+    return null;
   }
 
-  saveTasks(tasks);
-  return task;
+  tasks[taskIndex] = {
+    ...tasks[taskIndex],
+    status: 'completed',
+    completedAt: new Date(),
+    completedBy,
+  };
+
+  localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(tasks));
+
+  // Return the updated task with proper Date objects
+  return {
+    ...tasks[taskIndex],
+    dueStart: new Date(tasks[taskIndex].dueStart),
+    dueEnd: new Date(tasks[taskIndex].dueEnd),
+    completedAt: new Date(tasks[taskIndex].completedAt!),
+  };
 }
 
 /**
- * Get dashboard stats
+ * Add a note to a task
+ */
+export function addTaskNote(taskId: string, note: string): Task | null {
+  const data = localStorage.getItem(STORAGE_KEYS.TASKS);
+  const tasks: Task[] = data ? JSON.parse(data) : [];
+
+  const taskIndex = tasks.findIndex((t) => t.id === taskId);
+  if (taskIndex === -1) {
+    return null;
+  }
+
+  tasks[taskIndex] = {
+    ...tasks[taskIndex],
+    notes: note,
+  };
+
+  localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(tasks));
+
+  return {
+    ...tasks[taskIndex],
+    dueStart: new Date(tasks[taskIndex].dueStart),
+    dueEnd: new Date(tasks[taskIndex].dueEnd),
+    completedAt: tasks[taskIndex].completedAt ? new Date(tasks[taskIndex].completedAt) : undefined,
+  };
+}
+
+// =============================================================================
+// Dashboard Statistics
+// =============================================================================
+
+/**
+ * Get dashboard statistics
  */
 export function getDashboardStats(): {
   totalPatients: number;
   pendingTasks: number;
   overdueTasks: number;
   completedToday: number;
+  urgentTasks: number;
 } {
-  const patients = getPatients();
-  const tasks = getTasks();
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const patients = getAllPatients();
+  const tasks = getAllTasks();
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
   return {
     totalPatients: patients.length,
-    pendingTasks: tasks.filter(t => t.status === 'pending').length,
-    overdueTasks: tasks.filter(t => t.status === 'overdue').length,
-    completedToday: tasks.filter(t => {
+    pendingTasks: tasks.filter((t) => t.status === 'pending').length,
+    overdueTasks: tasks.filter((t) => t.status === 'overdue').length,
+    completedToday: tasks.filter((t) => {
       if (t.status !== 'completed' || !t.completedAt) return false;
-      const completedDate = new Date(t.completedAt);
-      completedDate.setHours(0, 0, 0, 0);
-      return completedDate.getTime() === today.getTime();
+      const completedAt = new Date(t.completedAt);
+      return completedAt >= startOfDay;
     }).length,
+    urgentTasks: getUrgentTasks().length,
   };
-}
-
-/**
- * Check if data has been initialized
- */
-export function isInitialized(): boolean {
-  return localStorage.getItem(STORAGE_KEY) !== null;
-}
-
-/**
- * Clear all data
- */
-export function clearData(): void {
-  localStorage.removeItem(STORAGE_KEY);
-  localStorage.removeItem(TASKS_STORAGE_KEY);
 }
