@@ -1,4 +1,4 @@
-import { Patient, Task, TASK_RULES } from '../../shared/types';
+import { Patient, Task, TaskStatus, TASK_RULES } from '../../shared/types';
 
 /**
  * Generate a unique ID for tasks
@@ -61,4 +61,97 @@ export function generateTasksForPatients(patients: Patient[]): Task[] {
     allTasks.push(...generateTasksForPatient(patient));
   }
   return allTasks;
+}
+
+/**
+ * Calculate the current status of a task based on time windows.
+ *
+ * Status logic:
+ * - 'completed': Task has been marked complete
+ * - 'upcoming': Current time is before the task window opens (dueStart)
+ * - 'overdue': Current time is after the task window closes (dueEnd)
+ * - 'pending': Current time is within the task window
+ */
+export function calculateTaskStatus(task: Task, now: Date = new Date()): TaskStatus {
+  if (task.status === 'completed') {
+    return 'completed';
+  }
+
+  const dueStart = task.dueStart instanceof Date ? task.dueStart : new Date(task.dueStart);
+  const dueEnd = task.dueEnd instanceof Date ? task.dueEnd : new Date(task.dueEnd);
+
+  if (now < dueStart) {
+    return 'upcoming';
+  } else if (now > dueEnd) {
+    return 'overdue';
+  } else {
+    return 'pending';
+  }
+}
+
+/**
+ * Check if a task is overdue.
+ */
+export function isTaskOverdue(task: Task, now: Date = new Date()): boolean {
+  return calculateTaskStatus(task, now) === 'overdue';
+}
+
+/**
+ * Calculate time remaining until task deadline (dueEnd).
+ * Returns milliseconds remaining, or negative if overdue.
+ */
+export function getTimeRemaining(task: Task, now: Date = new Date()): number {
+  const dueEnd = task.dueEnd instanceof Date ? task.dueEnd : new Date(task.dueEnd);
+  return dueEnd.getTime() - now.getTime();
+}
+
+/**
+ * Get time remaining in a human-readable format.
+ * Returns object with hours and minutes, and whether it's overdue.
+ */
+export function getTimeRemainingFormatted(
+  task: Task,
+  now: Date = new Date()
+): { hours: number; minutes: number; isOverdue: boolean; totalMinutes: number } {
+  const remaining = getTimeRemaining(task, now);
+  const isOverdue = remaining < 0;
+  const absoluteRemaining = Math.abs(remaining);
+
+  const totalMinutes = Math.floor(absoluteRemaining / (60 * 1000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  return { hours, minutes, isOverdue, totalMinutes };
+}
+
+/**
+ * Update task statuses based on current time.
+ * Returns tasks with recalculated status.
+ */
+export function updateTaskStatuses(tasks: Task[], now: Date = new Date()): Task[] {
+  return tasks.map((task) => ({
+    ...task,
+    status: calculateTaskStatus(task, now),
+  }));
+}
+
+/**
+ * Filter tasks to get only overdue ones.
+ */
+export function getOverdueTasks(tasks: Task[], now: Date = new Date()): Task[] {
+  return tasks.filter((task) => isTaskOverdue(task, now));
+}
+
+/**
+ * Filter tasks to get only pending ones (within time window).
+ */
+export function getPendingTasks(tasks: Task[], now: Date = new Date()): Task[] {
+  return tasks.filter((task) => calculateTaskStatus(task, now) === 'pending');
+}
+
+/**
+ * Filter tasks to get upcoming ones (window not yet open).
+ */
+export function getUpcomingTasks(tasks: Task[], now: Date = new Date()): Task[] {
+  return tasks.filter((task) => calculateTaskStatus(task, now) === 'upcoming');
 }

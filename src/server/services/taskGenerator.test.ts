@@ -1,10 +1,18 @@
 import { describe, it, expect } from 'vitest';
-import { Patient } from '../../shared/types';
+import { Patient, Task } from '../../shared/types';
 import {
   generateTaskId,
   getDischargeDateTime,
   generateTasksForPatient,
   generateTasksForPatients,
+  calculateTaskStatus,
+  isTaskOverdue,
+  getTimeRemaining,
+  getTimeRemainingFormatted,
+  updateTaskStatuses,
+  getOverdueTasks,
+  getPendingTasks,
+  getUpcomingTasks,
 } from './taskGenerator';
 
 const createTestPatient = (overrides: Partial<Patient> = {}): Patient => ({
@@ -252,6 +260,298 @@ describe('TaskGenerator', () => {
     it('should return empty array for empty patient list', () => {
       const tasks = generateTasksForPatients([]);
       expect(tasks).toEqual([]);
+    });
+  });
+
+  describe('calculateTaskStatus', () => {
+    const createTestTask = (overrides: Partial<Task> = {}): Task => ({
+      id: 'task_1',
+      patientId: 'MRN0001',
+      type: 'contact_patient',
+      status: 'pending',
+      dueStart: new Date('2026-01-14T10:00:00'),
+      dueEnd: new Date('2026-01-15T10:00:00'),
+      ...overrides,
+    });
+
+    it('should return completed for completed tasks', () => {
+      const task = createTestTask({ status: 'completed' });
+      const now = new Date('2026-01-14T12:00:00');
+      expect(calculateTaskStatus(task, now)).toBe('completed');
+    });
+
+    it('should return upcoming when before dueStart', () => {
+      const task = createTestTask({
+        dueStart: new Date('2026-01-14T10:00:00'),
+        dueEnd: new Date('2026-01-15T10:00:00'),
+      });
+      const now = new Date('2026-01-14T08:00:00'); // 2 hours before window
+      expect(calculateTaskStatus(task, now)).toBe('upcoming');
+    });
+
+    it('should return pending when within time window', () => {
+      const task = createTestTask({
+        dueStart: new Date('2026-01-14T10:00:00'),
+        dueEnd: new Date('2026-01-15T10:00:00'),
+      });
+      const now = new Date('2026-01-14T12:00:00'); // Within window
+      expect(calculateTaskStatus(task, now)).toBe('pending');
+    });
+
+    it('should return overdue when after dueEnd', () => {
+      const task = createTestTask({
+        dueStart: new Date('2026-01-14T10:00:00'),
+        dueEnd: new Date('2026-01-15T10:00:00'),
+      });
+      const now = new Date('2026-01-15T12:00:00'); // 2 hours after window
+      expect(calculateTaskStatus(task, now)).toBe('overdue');
+    });
+
+    it('should handle checkin_call 48-72hr window correctly', () => {
+      // Check-in call window: 48-72 hours after discharge
+      const dischargeTime = new Date('2026-01-14T10:00:00');
+      const task = createTestTask({
+        type: 'checkin_call',
+        dueStart: new Date(dischargeTime.getTime() + 48 * 60 * 60 * 1000),
+        dueEnd: new Date(dischargeTime.getTime() + 72 * 60 * 60 * 1000),
+      });
+
+      // Before window (at 24 hours)
+      const before = new Date(dischargeTime.getTime() + 24 * 60 * 60 * 1000);
+      expect(calculateTaskStatus(task, before)).toBe('upcoming');
+
+      // Within window (at 60 hours)
+      const during = new Date(dischargeTime.getTime() + 60 * 60 * 60 * 1000);
+      expect(calculateTaskStatus(task, during)).toBe('pending');
+
+      // After window (at 80 hours)
+      const after = new Date(dischargeTime.getTime() + 80 * 60 * 60 * 1000);
+      expect(calculateTaskStatus(task, after)).toBe('overdue');
+    });
+  });
+
+  describe('isTaskOverdue', () => {
+    const createTestTask = (overrides: Partial<Task> = {}): Task => ({
+      id: 'task_1',
+      patientId: 'MRN0001',
+      type: 'contact_patient',
+      status: 'pending',
+      dueStart: new Date('2026-01-14T10:00:00'),
+      dueEnd: new Date('2026-01-15T10:00:00'),
+      ...overrides,
+    });
+
+    it('should return true for overdue tasks', () => {
+      const task = createTestTask();
+      const now = new Date('2026-01-16T10:00:00');
+      expect(isTaskOverdue(task, now)).toBe(true);
+    });
+
+    it('should return false for pending tasks', () => {
+      const task = createTestTask();
+      const now = new Date('2026-01-14T12:00:00');
+      expect(isTaskOverdue(task, now)).toBe(false);
+    });
+
+    it('should return false for completed tasks', () => {
+      const task = createTestTask({ status: 'completed' });
+      const now = new Date('2026-01-16T10:00:00');
+      expect(isTaskOverdue(task, now)).toBe(false);
+    });
+  });
+
+  describe('getTimeRemaining', () => {
+    const createTestTask = (overrides: Partial<Task> = {}): Task => ({
+      id: 'task_1',
+      patientId: 'MRN0001',
+      type: 'contact_patient',
+      status: 'pending',
+      dueStart: new Date('2026-01-14T10:00:00'),
+      dueEnd: new Date('2026-01-15T10:00:00'),
+      ...overrides,
+    });
+
+    it('should return positive milliseconds when not overdue', () => {
+      const task = createTestTask({
+        dueEnd: new Date('2026-01-15T10:00:00'),
+      });
+      const now = new Date('2026-01-15T08:00:00'); // 2 hours before deadline
+      const remaining = getTimeRemaining(task, now);
+      expect(remaining).toBe(2 * 60 * 60 * 1000); // 2 hours in ms
+    });
+
+    it('should return negative milliseconds when overdue', () => {
+      const task = createTestTask({
+        dueEnd: new Date('2026-01-15T10:00:00'),
+      });
+      const now = new Date('2026-01-15T12:00:00'); // 2 hours after deadline
+      const remaining = getTimeRemaining(task, now);
+      expect(remaining).toBe(-2 * 60 * 60 * 1000); // -2 hours in ms
+    });
+
+    it('should return zero at exact deadline', () => {
+      const task = createTestTask({
+        dueEnd: new Date('2026-01-15T10:00:00'),
+      });
+      const now = new Date('2026-01-15T10:00:00');
+      const remaining = getTimeRemaining(task, now);
+      expect(remaining).toBe(0);
+    });
+  });
+
+  describe('getTimeRemainingFormatted', () => {
+    const createTestTask = (overrides: Partial<Task> = {}): Task => ({
+      id: 'task_1',
+      patientId: 'MRN0001',
+      type: 'contact_patient',
+      status: 'pending',
+      dueStart: new Date('2026-01-14T10:00:00'),
+      dueEnd: new Date('2026-01-15T10:00:00'),
+      ...overrides,
+    });
+
+    it('should format time remaining correctly', () => {
+      const task = createTestTask({
+        dueEnd: new Date('2026-01-15T10:00:00'),
+      });
+      const now = new Date('2026-01-15T07:30:00'); // 2.5 hours before deadline
+
+      const result = getTimeRemainingFormatted(task, now);
+
+      expect(result.hours).toBe(2);
+      expect(result.minutes).toBe(30);
+      expect(result.isOverdue).toBe(false);
+      expect(result.totalMinutes).toBe(150);
+    });
+
+    it('should format overdue time correctly', () => {
+      const task = createTestTask({
+        dueEnd: new Date('2026-01-15T10:00:00'),
+      });
+      const now = new Date('2026-01-15T11:30:00'); // 1.5 hours after deadline
+
+      const result = getTimeRemainingFormatted(task, now);
+
+      expect(result.hours).toBe(1);
+      expect(result.minutes).toBe(30);
+      expect(result.isOverdue).toBe(true);
+      expect(result.totalMinutes).toBe(90);
+    });
+  });
+
+  describe('updateTaskStatuses', () => {
+    it('should update statuses based on current time', () => {
+      const tasks: Task[] = [
+        {
+          id: 'task_1',
+          patientId: 'MRN0001',
+          type: 'contact_patient',
+          status: 'pending',
+          dueStart: new Date('2026-01-14T10:00:00'),
+          dueEnd: new Date('2026-01-15T10:00:00'),
+        },
+        {
+          id: 'task_2',
+          patientId: 'MRN0001',
+          type: 'medication_reconciliation',
+          status: 'pending',
+          dueStart: new Date('2026-01-16T10:00:00'),
+          dueEnd: new Date('2026-01-17T10:00:00'),
+        },
+      ];
+
+      const now = new Date('2026-01-14T12:00:00');
+      const updated = updateTaskStatuses(tasks, now);
+
+      expect(updated[0].status).toBe('pending'); // Within window
+      expect(updated[1].status).toBe('upcoming'); // Window not yet open
+    });
+  });
+
+  describe('getOverdueTasks', () => {
+    it('should return only overdue tasks', () => {
+      const tasks: Task[] = [
+        {
+          id: 'task_1',
+          patientId: 'MRN0001',
+          type: 'contact_patient',
+          status: 'pending',
+          dueStart: new Date('2026-01-13T10:00:00'),
+          dueEnd: new Date('2026-01-14T10:00:00'),
+        },
+        {
+          id: 'task_2',
+          patientId: 'MRN0001',
+          type: 'medication_reconciliation',
+          status: 'pending',
+          dueStart: new Date('2026-01-14T10:00:00'),
+          dueEnd: new Date('2026-01-15T10:00:00'),
+        },
+      ];
+
+      const now = new Date('2026-01-14T12:00:00');
+      const overdue = getOverdueTasks(tasks, now);
+
+      expect(overdue).toHaveLength(1);
+      expect(overdue[0].id).toBe('task_1');
+    });
+  });
+
+  describe('getPendingTasks', () => {
+    it('should return only pending tasks', () => {
+      const tasks: Task[] = [
+        {
+          id: 'task_1',
+          patientId: 'MRN0001',
+          type: 'contact_patient',
+          status: 'pending',
+          dueStart: new Date('2026-01-14T10:00:00'),
+          dueEnd: new Date('2026-01-15T10:00:00'),
+        },
+        {
+          id: 'task_2',
+          patientId: 'MRN0001',
+          type: 'medication_reconciliation',
+          status: 'pending',
+          dueStart: new Date('2026-01-16T10:00:00'),
+          dueEnd: new Date('2026-01-17T10:00:00'),
+        },
+      ];
+
+      const now = new Date('2026-01-14T12:00:00');
+      const pending = getPendingTasks(tasks, now);
+
+      expect(pending).toHaveLength(1);
+      expect(pending[0].id).toBe('task_1');
+    });
+  });
+
+  describe('getUpcomingTasks', () => {
+    it('should return only upcoming tasks', () => {
+      const tasks: Task[] = [
+        {
+          id: 'task_1',
+          patientId: 'MRN0001',
+          type: 'contact_patient',
+          status: 'pending',
+          dueStart: new Date('2026-01-14T10:00:00'),
+          dueEnd: new Date('2026-01-15T10:00:00'),
+        },
+        {
+          id: 'task_2',
+          patientId: 'MRN0001',
+          type: 'checkin_call',
+          status: 'pending',
+          dueStart: new Date('2026-01-16T10:00:00'),
+          dueEnd: new Date('2026-01-17T10:00:00'),
+        },
+      ];
+
+      const now = new Date('2026-01-14T12:00:00');
+      const upcoming = getUpcomingTasks(tasks, now);
+
+      expect(upcoming).toHaveLength(1);
+      expect(upcoming[0].id).toBe('task_2');
     });
   });
 });
