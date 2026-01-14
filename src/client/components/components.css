@@ -1,13 +1,16 @@
-/* Button Component */
+/* =============================================================================
+   Button Component
+   ============================================================================= */
+
 .button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  transition: background-color var(--transition-fast);
 }
 
 .button:disabled {
@@ -17,151 +20,163 @@
 
 /* Button Sizes */
 .button--sm {
-  padding: 0.375rem 0.75rem;
-  font-size: 0.75rem;
+  padding: var(--spacing-1) var(--spacing-3);
+  font-size: var(--font-size-xs);
 }
 
 .button--md {
-  padding: 0.5rem 1rem;
-  font-size: 0.875rem;
+  padding: var(--spacing-2) var(--spacing-4);
+  font-size: var(--font-size-sm);
 }
 
 .button--lg {
-  padding: 0.75rem 1.5rem;
-  font-size: 1rem;
+  padding: var(--spacing-3) var(--spacing-6);
+  font-size: var(--font-size-base);
 }
 
 /* Button Variants */
 .button--primary {
-  background-color: #2563eb;
+  background-color: var(--color-primary-600);
   color: white;
 }
 
 .button--primary:hover:not(:disabled) {
-  background-color: #1d4ed8;
+  background-color: var(--color-primary-700);
 }
 
 .button--secondary {
-  background-color: #6b7280;
+  background-color: var(--color-gray-500);
   color: white;
 }
 
 .button--secondary:hover:not(:disabled) {
-  background-color: #4b5563;
+  background-color: var(--color-gray-600);
 }
 
 .button--danger {
-  background-color: #dc2626;
+  background-color: var(--color-danger);
   color: white;
 }
 
 .button--danger:hover:not(:disabled) {
-  background-color: #b91c1c;
+  background-color: var(--color-danger-dark);
 }
 
 .button--ghost {
   background-color: transparent;
-  color: #374151;
+  color: var(--color-gray-700);
 }
 
 .button--ghost:hover:not(:disabled) {
-  background-color: #f3f4f6;
+  background-color: var(--color-gray-100);
 }
 
-/* Card Component */
+/* =============================================================================
+   Card Component
+   ============================================================================= */
+
 .card {
   background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
 }
 
 .card__header {
-  padding: 1rem;
-  border-bottom: 1px solid #e5e7eb;
+  padding: var(--spacing-4);
+  border-bottom: 1px solid var(--color-gray-200);
 }
 
 .card__body {
-  padding: 1rem;
+  padding: var(--spacing-4);
 }
 
 .card__footer {
-  padding: 1rem;
-  border-top: 1px solid #e5e7eb;
+  padding: var(--spacing-4);
+  border-top: 1px solid var(--color-gray-200);
 }
 
-/* Badge Component */
+/* =============================================================================
+   Badge Component
+   ============================================================================= */
+
 .badge {
   display: inline-flex;
   align-items: center;
-  padding: 0.25rem 0.5rem;
-  font-size: 0.75rem;
-  font-weight: 500;
-  border-radius: 9999px;
+  padding: var(--spacing-1) var(--spacing-2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-full);
 }
 
 .badge--default {
-  background-color: #e5e7eb;
-  color: #374151;
+  background-color: var(--color-gray-200);
+  color: var(--color-gray-700);
 }
 
 .badge--success {
-  background-color: #d1fae5;
-  color: #065f46;
+  background-color: var(--color-success-light);
+  color: var(--color-success-dark);
 }
 
 .badge--warning {
-  background-color: #fef3c7;
-  color: #92400e;
+  background-color: var(--color-warning-light);
+  color: var(--color-warning-dark);
 }
 
 .badge--danger {
-  background-color: #fee2e2;
-  color: #991b1b;
+  background-color: var(--color-danger-light);
+  color: var(--color-danger-dark);
 }
 
 .badge--info {
-  background-color: #dbeafe;
-  color: #1e40af;
+  background-color: var(--color-info-light);
+  color: var(--color-info-dark);
 }
 
-/* Table Component */
+/* =============================================================================
+   Table Component
+   ============================================================================= */
+
 .table {
   width: 100%;
   border-collapse: collapse;
   background-color: white;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-md);
 }
 
 .table__head {
-  background-color: #f9fafb;
+  background-color: var(--color-gray-50);
 }
 
 .table__header {
-  padding: 0.75rem 1rem;
+  padding: var(--spacing-3) var(--spacing-4);
   text-align: left;
-  font-weight: 600;
-  font-size: 0.75rem;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-xs);
   text-transform: uppercase;
-  color: #6b7280;
-  border-bottom: 1px solid #e5e7eb;
+  color: var(--color-gray-500);
+  border-bottom: 1px solid var(--color-gray-200);
 }
 
 .table__body .table__row:not(:last-child) {
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--color-gray-200);
 }
 
 .table__body .table__row:hover {
-  background-color: #f9fafb;
+  background-color: var(--color-gray-50);
 }
 
 .table__cell {
-  padding: 0.75rem 1rem;
-  font-size: 0.875rem;
+  padding: var(--spacing-3) var(--spacing-4);
+  font-size: var(--font-size-sm);
 }
 
-/* TaskCard Component */
+/* =============================================================================
+   TaskCard Component
+   ============================================================================= */
+
 .task-card__header {
   display: flex;
   justify-content: space-between;
@@ -169,14 +184,14 @@
 }
 
 .task-card__type {
-  font-weight: 600;
-  color: #111827;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-gray-900);
 }
 
 .task-card__body {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--spacing-2);
 }
 
 .task-card__due,
@@ -184,32 +199,35 @@
 .task-card__notes {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.25rem;
-  font-size: 0.875rem;
+  gap: var(--spacing-1);
+  font-size: var(--font-size-sm);
 }
 
 .task-card__label {
-  color: #6b7280;
-  font-weight: 500;
+  color: var(--color-gray-500);
+  font-weight: var(--font-weight-medium);
 }
 
 .task-card__value {
-  color: #374151;
+  color: var(--color-gray-700);
 }
 
 .task-card__by {
-  color: #9ca3af;
+  color: var(--color-gray-400);
 }
 
-/* PatientHeader Component */
+/* =============================================================================
+   PatientHeader Component
+   ============================================================================= */
+
 .patient-header {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  padding: 1rem;
+  gap: var(--spacing-3);
+  padding: var(--spacing-4);
   background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
 }
 
 .patient-header__main {
@@ -217,84 +235,104 @@
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--spacing-2);
 }
 
 .patient-header__name {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #111827;
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-gray-900);
   margin: 0;
 }
 
 .patient-header__badges {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--spacing-2);
 }
 
 .patient-header__details {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: var(--spacing-4);
 }
 
 .patient-header__detail {
-  font-size: 0.875rem;
-  color: #374151;
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-700);
 }
 
 .patient-header__label {
-  color: #6b7280;
-  font-weight: 500;
+  color: var(--color-gray-500);
+  font-weight: var(--font-weight-medium);
 }
 
-/* PatientCard Component */
+/* =============================================================================
+   PatientCard Component
+   ============================================================================= */
+
 .patient-card__header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 0.5rem;
+  gap: var(--spacing-2);
 }
 
 .patient-card__info {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--spacing-1);
 }
 
 .patient-card__name {
-  font-weight: 600;
-  color: #111827;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-gray-900);
 }
 
 .patient-card__mrn {
-  font-size: 0.75rem;
-  color: #6b7280;
+  font-size: var(--font-size-xs);
+  color: var(--color-gray-500);
 }
 
 .patient-card__body {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--spacing-2);
 }
 
 .patient-card__row {
   display: flex;
-  gap: 0.25rem;
-  font-size: 0.875rem;
+  gap: var(--spacing-1);
+  font-size: var(--font-size-sm);
 }
 
 .patient-card__label {
-  color: #6b7280;
-  font-weight: 500;
+  color: var(--color-gray-500);
+  font-weight: var(--font-weight-medium);
 }
 
 .patient-card__value {
-  color: #374151;
+  color: var(--color-gray-700);
 }
 
 .patient-card__tasks {
   display: flex;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
+  gap: var(--spacing-2);
+  margin-top: var(--spacing-2);
+}
+
+/* =============================================================================
+   Responsive Adjustments for Components
+   ============================================================================= */
+
+@media (max-width: 640px) {
+  .patient-header__details {
+    flex-direction: column;
+    gap: var(--spacing-2);
+  }
+
+  .task-card__due,
+  .task-card__completed {
+    flex-direction: column;
+    gap: 0;
+  }
 }
