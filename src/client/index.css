@@ -284,3 +284,37 @@ body {
   white-space: nowrap;
   border: 0;
 }
+
+/* =============================================================================
+   Dashboard Styles
+   ============================================================================= */
+
+.dashboard {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.stat-card__value {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-gray-900);
+  line-height: 1;
+}
+
+.stat-card__label {
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-500);
+  margin-top: var(--spacing-2);
+}
+
+.urgent-task {
+  display: flex;
+  flex-direction: column;
+}

@@ -1,3 +1,5 @@
+import { Dashboard } from './views';
+
 function App() {
   return (
     <div className="app">
@@ -6,7 +8,7 @@ function App() {
         <p>Hospital discharge task management</p>
       </header>
       <main className="app-main">
-        <p>Application loading...</p>
+        <Dashboard />
       </main>
     </div>
   );
